@@ -12,7 +12,6 @@ def siapkan_input_model_cf(user_id_input,
 
     isbns_not_read_series = df_books_global[~df_books_global['ISBN'].isin(book_readed_by_user['ISBN'].values)]['ISBN']
     
-    # Irisan dengan ISBN yang dikenal oleh isbn_encoding_global (kunci dari dict)
     candidate_isbns_str = list(
         set(isbns_not_read_series.unique())
         .intersection(set(isbn_encoding_global.keys()))
@@ -23,7 +22,6 @@ def siapkan_input_model_cf(user_id_input,
 
     user_encoded_id = user_encoding_global.get(user_id_input)
     if user_encoded_id is None:
-        print(f"Peringatan CF: User ID {user_id_input} tidak ditemukan di user_encoding.")
         return None, []
 
     book_encoded_ids_list_of_lists = []
@@ -56,7 +54,6 @@ def get_cf_recommendation(user_id,
     output_columns = ['Book Title', 'Book Author', 'image_url']
 
     if loaded_cf_model is None:
-        print("Error CF: Model belum dimuat atau None.")
         return pd.DataFrame(columns=output_columns)
 
     user_book_array_for_pred, candidate_isbns_for_pred = siapkan_input_model_cf(
@@ -89,7 +86,6 @@ def get_cf_recommendation(user_id,
             predictions = predictions_output.numpy().flatten()
             
     except Exception as e:
-        print(f"Error saat prediksi CF: {e}")
         return pd.DataFrame(columns=output_columns)
 
     top_indices = predictions.argsort()[::-1][:top_n]

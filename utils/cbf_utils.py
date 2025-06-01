@@ -11,7 +11,6 @@ def get_similar_books(query_title: str,
     output_columns = ['Book Title', 'Book Author', 'image_url']
 
     if tfidf_matrix is None or not all_titles_ordered or books_details_df.empty:
-        print("Peringatan CBF: Aset CBF tidak lengkap.")
         return pd.DataFrame(columns=output_columns)
 
     try:
@@ -24,14 +23,15 @@ def get_similar_books(query_title: str,
             if 'streamlit' in globals() or 'streamlit' in locals(): # Cek apakah st bisa diakses
                  st.warning(f"Judul buku '{query_title}' tidak ditemukan dalam daftar CBF.")
             else:
-                 print(f"Peringatan CBF: Judul buku '{query_title}' tidak ditemukan dalam daftar CBF.")
+                 st.warning(f"Peringatan CBF: Judul buku '{query_title}' tidak ditemukan dalam daftar CBF.")
             return pd.DataFrame(columns=output_columns)
-    except ValueError: # Jika .index() gagal karena alasan lain
+    except Exception as e:
         if 'streamlit' in globals() or 'streamlit' in locals():
-            st.warning(f"Judul buku '{query_title}' tidak ditemukan dalam daftar CBF (ValueError).")
+            st.error(f"Error saat mencari indeks buku CBF: {e}")
         else:
-            print(f"Peringatan CBF: Judul buku '{query_title}' tidak ditemukan (ValueError).")
+            st.error(f"Error saat mencari indeks buku CBF: {e}")
         return pd.DataFrame(columns=output_columns)
+      
 
     query_vector = tfidf_matrix[book_index]
     cosine_similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
@@ -41,9 +41,9 @@ def get_similar_books(query_title: str,
     similar_books_data = []
     count = 0
     for idx in similar_indices:
-        if idx == book_index: # Lewati buku query itu sendiri
+        if idx == book_index: 
             continue
-        if count >= top_n: # Batasi hingga top_n hasil
+        if count >= top_n: 
             break
         
         try:
@@ -70,8 +70,6 @@ def get_similar_books(query_title: str,
         except Exception as e:
              if 'streamlit' in globals() or 'streamlit' in locals():
                 st.warning(f"Error saat mengambil detail buku CBF untuk indeks {idx}: {e}")
-             else:
-                print(f"Error saat mengambil detail buku CBF untuk indeks {idx}: {e}")
              continue
-            
+
     return pd.DataFrame(similar_books_data, columns=output_columns)
