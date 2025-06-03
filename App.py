@@ -73,7 +73,7 @@ else:
 
     # Fitur pencarian CBF
     if all([df_books_cbf is not None, cbf_tfidf_matrix is not None, book_titles]):
-        book_title_options = df_books_cbf['title'].drop_duplicates().sample(frac=1).tolist()
+        book_title_options = df_books_cbf['title'].drop_duplicates().tolist()
         selected_book_title = st.selectbox("Pilih Judul Buku:", options=book_title_options, key="cbf_selectbox")
         num_recs_cbf = st.slider("Jumlah Rekomendasi:", 1, 15, 5, key="cbf_slider")
 
