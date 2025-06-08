@@ -27,8 +27,12 @@ num_users_book_count = load_pickle_file("assets/data/user_book_counts.pkl")
 num_users = num_users_book_count.get('num_user', 0)
 num_books = num_users_book_count.get('num_book', 0)
 # load model
-cf_model = load_recommender_model(num_users, num_books, "assets/cf_model/cf.weights.h5")
-
+try:
+    cf_model = load_recommender_model(num_users, num_books, "assets/cf_model/cf.weights.h5")
+except Exception as e:
+    st.error(f"Error loading CF model: {e}")
+    cf_model = None
+    
 # Aset CBF
 df_books_cbf = load_csv_data("assets/data/books_cbf.csv")
 cbf_tfidf_matrix = load_joblib_file("assets/cbf_model/cbf_tfidf_matrix.pkl")
@@ -113,4 +117,9 @@ else:
         st.subheader("📌 Rekomendasi Berdasarkan Preferensi Anda")
         tampilkan_rekomendasi_di_ui(rekomendasi_df, f"Rekomendasi untuk User: {user_id}")
     else:
+        st.write("num_users:", num_users)
+        st.write("num_books:", num_books)
+        st.write("df_ratings is None:", df_ratings is None)
+        st.write("cf_model:", cf_model)
+        st.write("book_df is None:", book_df is None)
         st.error("Aset untuk Collaborative Filtering tidak lengkap. Periksa pemuatan data.")
