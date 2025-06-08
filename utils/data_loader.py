@@ -36,7 +36,7 @@ def load_csv_data(file_path, **kwargs):
         st.error(f"Error saat memuat CSV {file_path}: {e}")
     return pd.DataFrame() # Kembalikan DataFrame kosong jika error
 
-@st.cache_resource
+# @st.cache_resource
 def load_recommender_model(num_users: int,
                            num_book: int,
                            weights_path: str,
