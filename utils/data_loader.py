@@ -52,16 +52,12 @@ def load_recommender_model(num_users: int,
         # Panggil model dengan input dummy
         _ = loaded_model(dummy_input)
 
-        print("Model arsitektur berhasil dibangun.")
-
         # Muat bobot ke dalam instance model yang baru dibuat
         loaded_model.load_weights(weights_path)
-        print(f"Bobot model berhasil dimuat dari: {weights_path}")
+
         return loaded_model
 
     except FileNotFoundError:
-        print(f"Error: File bobot tidak ditemukan di {weights_path}")
         return None
     except Exception as e:
-        print(f"Error loading weights: {e}")
         return None
