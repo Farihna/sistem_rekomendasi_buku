@@ -52,9 +52,9 @@ if "logged_in" not in st.session_state:
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-# user ID 
+# user ID
 list_user_id = df_ratings['User-ID']
-
+    
 # Jika belum login, tampilkan form login
 if not st.session_state.logged_in:
     st.subheader("🔐 Silakan Login Terlebih Dahulu")
@@ -68,9 +68,15 @@ if not st.session_state.logged_in:
 else:
     user_id = st.session_state.user_id
 
-    st.success(f"Login sebagai User ID: {user_id}")
-    st.markdown("---")
-    st.subheader("🔍 Cari Buku Serupa")
+    # Tampilkan status login dan tombol logout
+    col1, col2 = st.columns([0.9, 0.1])
+    with col1:
+        st.success(f"Login sebagai User ID: {user_id}")
+    with col2:
+        if st.button("Logout", key="logout_button"):
+            st.session_state.logged_in = False
+            st.session_state.user_id = None
+            st.rerun()
 
     # Fitur pencarian CBF
     if all([df_books_cbf is not None, cbf_tfidf_matrix is not None, book_titles]):
