@@ -27,7 +27,6 @@ class RecommenderNet(keras.Model):
         )
         self.book_bias = layers.Embedding(num_book, 1) # layer embedding book bias
         self.dropout = layers.Dropout(rate=dropout_rate)
-
     def call(self, inputs):
         user_vector = self.user_embedding(inputs[:, 0]) # memanggil layer embedding 1
         user_vector = self.dropout(user_vector)
@@ -38,7 +37,9 @@ class RecommenderNet(keras.Model):
         book_bias = self.book_bias(inputs[:, 1]) # memanggil layer embedding 4
 
         dot_user_book = ops.tensordot(user_vector, book_vector, 2) # perkalian dot product
+
         x = dot_user_book + user_bias + book_bias
+
         return ops.nn.sigmoid(x) # activation sigmoid
 
     def get_config(self):

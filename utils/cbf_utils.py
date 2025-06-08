@@ -7,8 +7,8 @@ def get_similar_books(query_title: str,
                       all_titles_ordered: list, 
                       books_details_df: pd.DataFrame,
                       top_n=5):
-    
-    output_columns = ['Book Title', 'Book Author', 'image_url']
+
+    output_columns = ['Book Title', 'Book Author', 'Image-URL-L']
 
     if tfidf_matrix is None or not all_titles_ordered or books_details_df.empty:
         return pd.DataFrame(columns=output_columns)
@@ -31,7 +31,6 @@ def get_similar_books(query_title: str,
         else:
             st.error(f"Error saat mencari indeks buku CBF: {e}")
         return pd.DataFrame(columns=output_columns)
-      
 
     query_vector = tfidf_matrix[book_index]
     cosine_similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
@@ -49,12 +48,12 @@ def get_similar_books(query_title: str,
         try:
             if idx < len(books_details_df) and idx < len(all_titles_ordered):
                 title = all_titles_ordered[idx]
-                book_info_row_series = books_details_df[books_details_df['title'] == title]
+                book_info_row_series = books_details_df[books_details_df['Book-Title'] == title]
 
                 if not book_info_row_series.empty:
                     book_info_row = book_info_row_series.iloc[0]
-                    author = book_info_row.get('author', "Penulis tidak diketahui")
-                    image_url_val = book_info_row.get('image_url', "")
+                    author = book_info_row.get('Book-Author', "Penulis tidak diketahui")
+                    image_url_val = book_info_row.get('Image-URL-L', "")
                     if pd.isna(author): author = "Penulis tidak diketahui"
                     if pd.isna(image_url_val): image_url_val = ""
                 else:
@@ -64,7 +63,7 @@ def get_similar_books(query_title: str,
                 similar_books_data.append({
                     'Book Title': title,
                     'Book Author': author,
-                    'image_url': image_url_val
+                    'Image-URL-L': image_url_val
                 })
                 count += 1
         except Exception as e:

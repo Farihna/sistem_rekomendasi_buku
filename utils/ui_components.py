@@ -25,7 +25,7 @@ def tampilkan_rekomendasi_di_ui(df_rekomendasi: pd.DataFrame, judul_bagian: str)
             if pd.isna(penulis_buku) or str(penulis_buku).strip() == "":
                 penulis_buku = 'Penulis tidak diketahui'
 
-            image_url = row.get('image_url', None)
+            image_url = row.get('Image-URL-L', None)
 
             # Gambar buku
             if image_url and pd.notna(image_url) and isinstance(image_url, str) and image_url.strip() != "":

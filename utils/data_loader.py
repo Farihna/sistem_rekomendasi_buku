@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 import joblib 
 import tensorflow as tf
-from tensorflow import keras 
+from custom_models.recommender_net import RecommenderNet
 
 def load_pickle_file(file_path):
     try:
@@ -36,66 +36,31 @@ def load_csv_data(file_path, **kwargs):
         st.error(f"Error saat memuat CSV {file_path}: {e}")
     return pd.DataFrame() # Kembalikan DataFrame kosong jika error
 
-def load_cf_keras_model(model_directory_path, custom_objects=None):
+def load_recommender_model(num_users: int,
+                           num_book: int,
+                           weights_path: str,
+                           embedding_size: int = 16,
+                           dropout_rate: float = 0.2):
+
     try:
-        model = tf.keras.models.load_model(
-            model_directory_path,
-            custom_objects=custom_objects
-        )
-        return model
-    except Exception as e:
-        st.error(f"Gagal memuat Keras model dari {model_directory_path}. Error: {e}")
-        import traceback
-        print(traceback.format_exc())
-    return None
+        # instance model baru dengan parameter yang sama
+        loaded_model = RecommenderNet(num_users, num_book, embedding_size, dropout_rate=dropout_rate)
+        dummy_batch_size = 1
+        dummy_input = tf.zeros((dummy_batch_size, 2), dtype=tf.float32)
 
-def load_tfsmlayer_model(model_directory_path, call_endpoint='serving_default'):
-    try:
-        model_layer = keras.layers.TFSMLayer(model_directory_path, call_endpoint=call_endpoint)
-        return model_layer
-    except Exception as e:
-        st.error(f"Gagal menginisialisasi TFSMLayer dari {model_directory_path}. Error: {e}")
-        import traceback
-    return None
+        # Panggil model dengan input dummy
+        _ = loaded_model(dummy_input)
 
-def load_books(file_path): 
-    try:
-        df = pd.read_csv(file_path)
-        columns_to_rename = {
-            'Book-Title': 'title',
-            'Book-Author': 'author',
-            'Image-URL-L': 'image_url'
-        }
-        existing_columns_to_rename = {
-            old: new for old, new in columns_to_rename.items() if old in df.columns
-        }
-        df = df.rename(columns=existing_columns_to_rename)
+        print("Model arsitektur berhasil dibangun.")
 
-        if 'title' not in df.columns or 'ISBN' not in df.columns:
-            st.error("Kolom 'title' atau 'ISBN' tidak ditemukan di data buku setelah rename.")
-            return pd.DataFrame()
+        # Muat bobot ke dalam instance model yang baru dibuat
+        loaded_model.load_weights(weights_path)
+        print(f"Bobot model berhasil dimuat dari: {weights_path}")
+        return loaded_model
 
-        df.dropna(subset=['title'], inplace=True)
-        df['title'] = df['title'].astype(str)
-        if 'author' in df.columns:
-            df['author'] = df['author'].astype(str).fillna("Penulis tidak diketahui")
-        if 'image_url' in df.columns:
-            df['image_url'] = df['image_url'].astype(str).fillna("")
-        return df
     except FileNotFoundError:
-        st.error(f"Berkas data buku ({file_path}) tidak ditemukan.")
+        print(f"Error: File bobot tidak ditemukan di {weights_path}")
+        return None
     except Exception as e:
-        st.error(f"Error memuat data buku dari {file_path}: {e}")
-    return pd.DataFrame()
-
-def load_recommender_model_as_tfsmlayer(model_directory_path: str, call_endpoint: str = 'serving_default'):
-    try:
-        model_layer = keras.layers.TFSMLayer(model_directory_path, call_endpoint=call_endpoint)
-        return model_layer
-    except Exception as e:
-        error_message = f"Gagal menginisialisasi TFSMLayer dari {model_directory_path}. Error: {e}"
-        import traceback
-        print(traceback.format_exc())
-        st.error(error_message)
-        st.text_area("Detail Error Model CF", traceback.format_exc(), height=200)
-    return None
+        print(f"Error loading weights: {e}")
+        return None

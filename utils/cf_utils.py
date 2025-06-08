@@ -1,116 +1,114 @@
-
 import pandas as pd
 import numpy as np
 
-def siapkan_input_model_cf(user_id_input, 
+def get_cf_recommendations(user_id_input,
                            df_ratings_global: pd.DataFrame,
-                           df_books_global: pd.DataFrame, 
-                           isbn_encoding_global: dict,  
-                           user_encoding_global: dict): 
-    
+                           df_clean_books_global: pd.DataFrame,
+                           isbn_encoding_global: dict,
+                           user_encoding_global: dict,
+                           model,
+                           top_n):
+
+    # Ambil buku yang sudah dibaca pengguna
     book_readed_by_user = df_ratings_global[df_ratings_global['User-ID'] == user_id_input]
 
-    isbns_not_read_series = df_books_global[~df_books_global['ISBN'].isin(book_readed_by_user['ISBN'].values)]['ISBN']
-    
-    candidate_isbns_str = list(
-        set(isbns_not_read_series.unique())
+    # Siapkan DataFrame buku yang sudah dibaca pengguna 
+    df_book_readed_by_user_data = []
+    if not book_readed_by_user.empty:
+        top_book_user_isbns = (
+            book_readed_by_user.sort_values(
+                by='Book-Rating',
+                ascending=False
+            )
+            .head(10)['ISBN'].values
+        )
+
+        for isbn_val in top_book_user_isbns:
+            book_detail_series = df_clean_books_global[df_clean_books_global['ISBN'] == isbn_val]
+            if not book_detail_series.empty:
+                book_detail = book_detail_series.iloc[0]
+                df_book_readed_by_user_data.append([book_detail['Book-Title'], book_detail['Book-Author'], book_detail['Image-URL-L']])
+
+    output_columns_read = ['Book Title', 'Book Author', 'User Rating']
+    df_book_readed_by_user = pd.DataFrame(df_book_readed_by_user_data, columns=output_columns_read)
+
+    # Siapkan input untuk model prediksi
+    if user_id_input not in user_encoding_global:
+        print(f"Pengguna dengan ID {user_id_input} tidak ditemukan dalam pemetaan pengguna.")
+        return df_book_readed_by_user, pd.DataFrame()
+
+    user_encoded_id = user_encoding_global[user_id_input]
+
+    # Dapatkan semua ISBN yang ada di clean_books DAN di isbn_encoding
+    all_valid_isbns = list(
+        set(df_clean_books_global['ISBN'].unique())
         .intersection(set(isbn_encoding_global.keys()))
     )
 
-    if not candidate_isbns_str:
-        return None, []
+    # Filter ISBN yang sudah dibaca oleh pengguna
+    book_readed_isbns = book_readed_by_user['ISBN'].unique()
+    book_not_readed_original_isbns = [
+        isbn for isbn in all_valid_isbns if isbn not in book_readed_isbns
+    ]
 
-    user_encoded_id = user_encoding_global.get(user_id_input)
-    if user_encoded_id is None:
-        return None, []
+    if not book_not_readed_original_isbns:
+        print(f"Tidak ada buku yang belum dibaca oleh pengguna {user_id_input} yang dapat diprediksi.")
+        return df_book_readed_by_user, pd.DataFrame()
 
-    book_encoded_ids_list_of_lists = []
-    valid_candidate_isbns_for_array = []
-    for isbn_str in candidate_isbns_str:
-        encoded_id = isbn_encoding_global.get(isbn_str)
-        if encoded_id is not None:
-            book_encoded_ids_list_of_lists.append([encoded_id])
-            valid_candidate_isbns_for_array.append(isbn_str)
+    # Ubah ISBN asli buku yang belum dibaca menjadi ID ter-encode
+    book_not_readed_encoded = [isbn_encoding_global.get(isbn) for isbn in book_not_readed_original_isbns]
+    book_not_readed_encoded = [encoded_id for encoded_id in book_not_readed_encoded if encoded_id is not None]
 
-    if not book_encoded_ids_list_of_lists:
-        return None, []
+    if not book_not_readed_encoded:
+        print(f"Tidak ada ISBN yang belum dibaca oleh pengguna {user_id_input} yang ditemukan di encoding.")
+        return df_book_readed_by_user, pd.DataFrame()
 
-    user_id_repeated_array = np.full((len(book_encoded_ids_list_of_lists), 1), user_encoded_id, dtype=np.int32)
-    book_ids_array = np.array(book_encoded_ids_list_of_lists, dtype=np.int32)
-    user_book_array_intermediate = np.hstack((user_id_repeated_array, book_ids_array))
-    user_book_array_output = user_book_array_intermediate.astype(np.float32)
-    
-    return user_book_array_output, valid_candidate_isbns_for_array
+    # Membuat user_book_array (N, 2) untuk input model
+    user_ids_array = np.full((len(book_not_readed_encoded), 1), user_encoded_id)
+    books_ids_array = np.array(book_not_readed_encoded).reshape(-1, 1)
+    user_book_array = np.hstack((user_ids_array, books_ids_array))
 
+    # Prediksi Rating dan Pengambilan Top N
+    user_book_array_input = user_book_array.astype(np.float32)
+    predicted_ratings_normalized = model.predict(user_book_array_input).flatten()
 
-def get_cf_recommendation(user_id, 
-                          loaded_cf_model, 
-                          df_ratings_data: pd.DataFrame, 
-                          df_books_details: pd.DataFrame, 
-                          isbn_encoder_cf: dict, 
-                          user_encoder_cf: dict, 
-                          top_n=10):
+    num_recommendations = min(top_n, len(predicted_ratings_normalized))
+    top_ratings_indices = predicted_ratings_normalized.argsort()[-num_recommendations:][::-1]
 
-    output_columns = ['Book Title', 'Book Author', 'image_url']
+    # Dapatkan ID buku ter-encode yang direkomendasikan
+    recommended_book_ids_encoded = [book_not_readed_encoded[i] for i in top_ratings_indices]
 
-    if loaded_cf_model is None:
-        return pd.DataFrame(columns=output_columns)
+    encoded_to_original_isbn_map = {v: k for k, v in isbn_encoding_global.items()}
 
-    user_book_array_for_pred, candidate_isbns_for_pred = siapkan_input_model_cf(
-        user_id,
-        df_ratings_data,
-        df_books_details, 
-        isbn_encoder_cf,
-        user_encoder_cf
-    )
+    recommended_original_isbns = [encoded_to_original_isbn_map.get(encoded_id)
+                                  for encoded_id in recommended_book_ids_encoded]
 
-    if user_book_array_for_pred is None or not candidate_isbns_for_pred:
-        return pd.DataFrame(columns=output_columns)
-
-    model_input = user_book_array_for_pred 
-    
-    output_tensor = 'output_0'
-
-    try:
-        predictions_output = loaded_cf_model(model_input)
-        if isinstance(predictions_output, dict):
-            if output_tensor in predictions_output:
-                predictions = predictions_output[output_tensor].numpy().flatten()
+    recommended_book_data_final = []
+    for i, original_isbn in enumerate(recommended_original_isbns):
+        if original_isbn:
+            book_detail_series = df_clean_books_global[df_clean_books_global['ISBN'] == original_isbn]
+            if not book_detail_series.empty:
+                book_detail = book_detail_series.iloc[0]
+                recommended_book_data_final.append({
+                    'Book Title': book_detail['Book-Title'],
+                    'Book Author': book_detail['Book-Author'],
+                    'Image-URL-L': book_detail['Image-URL-L']
+                })
             else:
-                output_keys = list(predictions_output.keys())
-                if len(output_keys) == 1:
-                    predictions = predictions_output[output_keys[0]].numpy().flatten()
-                else:
-                    raise ValueError(f"Output tensor CF '{output_tensor}' tidak ditemukan. Keys: {output_keys}")
+                recommended_book_data_final.append({
+                    'Book Title': f"Detail tidak ditemukan untuk ISBN: {original_isbn}",
+                    'Book Author': '-',
+                    'Image-URL-L': '' 
+                })
         else:
-            predictions = predictions_output.numpy().flatten()
-            
-    except Exception as e:
-        return pd.DataFrame(columns=output_columns)
+            recommended_book_data_final.append({
+                'Book Title': f"ISBN asli tidak ditemukan untuk encoded_id: {recommended_book_ids_encoded[i]}",
+                'Book Author': '-',
+                'Image-URL-L': ''
+            })
 
-    top_indices = predictions.argsort()[::-1][:top_n]
-    top_isbns_recommended = [candidate_isbns_for_pred[i] for i in top_indices]
+    # Membuat DataFrame untuk output rekomendasi
+    output_columns_rec = ['Book Title', 'Book Author', 'Image-URL-L']
+    df_recommended_books = pd.DataFrame(recommended_book_data_final, columns=output_columns_rec)
     
-    recommended_books_data = []
-    for isbn_str in top_isbns_recommended:
-        book_info = df_books_details[df_books_details['ISBN'] == isbn_str]
-        
-        if not book_info.empty:
-            title = book_info['title'].iloc[0] 
-            author = book_info.get('author', pd.Series(["Penulis tidak diketahui"])).iloc[0]
-            image_url_val = book_info.get('image_url', pd.Series([""])).iloc[0] # Asumsi kolom 'image_url' sudah ada
-            
-            if pd.isna(author): author = "Penulis tidak diketahui"
-            if pd.isna(image_url_val): image_url_val = ""
-        else:
-            title = f"Judul untuk ISBN {isbn_str} tidak ditemukan"
-            author = "N/A"
-            image_url_val = ""
-            
-        recommended_books_data.append({
-            'Book Title': title,
-            'Book Author': author,
-            'image_url': image_url_val
-        })
-        
-    return pd.DataFrame(recommended_books_data, columns=output_columns)
+    return df_recommended_books
