@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 def tampilkan_rekomendasi_di_ui(df_rekomendasi: pd.DataFrame, judul_bagian: str):
-    st.subheader(judul_bagian)
+    st.markdown(f"##### {judul_bagian}")
 
     if df_rekomendasi is None or df_rekomendasi.empty:
         st.info("Tidak ada buku yang dapat direkomendasikan saat ini untuk kriteria ini.")

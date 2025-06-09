@@ -1,10 +1,10 @@
 import streamlit as st
 
 from utils.data_loader import (
-    load_pickle_file,                # Untuk memuat user_encoding.pkl, isbn_encoding.pkl (CF), book_titles.pkl (jika dict)
-    load_joblib_file,                # Untuk memuat cbf_tfidf_matrix.pkl jika disimpan dengan joblib
-    load_csv_data,                   # Untuk memuat .csv
-    load_recommender_model,          # Untuk memuat model CF sebagai weight
+    load_pickle_file,        # Untuk memuat .pkl
+    load_joblib_file,        # Untuk memuat joblib
+    load_csv_data,           # Untuk memuat .csv
+    load_recommender_model,  # Untuk memuat model CF sebagai weight
 )
 from utils.cf_utils import get_cf_recommendations
 from utils.cbf_utils import get_similar_books
@@ -85,26 +85,25 @@ else:
     # Fitur pencarian CBF
     if all([df_books_cbf is not None, cbf_tfidf_matrix is not None, book_titles]):
         book_title_options = df_books_cbf['Book-Title'].drop_duplicates().tolist()
-        selected_book_title = st.selectbox("Pilih Judul Buku:", options=book_title_options, key="cbf_selectbox")
-        num_recs_cbf = st.slider("Jumlah Rekomendasi:", 1, 15, 5, key="cbf_slider")
+        with st.container(border=True): 
+            select_title = st.selectbox("Pilih Judul Buku:", options=book_title_options, key="cbf_selectbox")
 
-        if st.button("Cari Buku", key="cbf_button"):
-            if selected_book_title:
-                similar_df = get_similar_books(
-                    selected_book_title,
-                    cbf_tfidf_matrix,
-                    book_titles,
-                    df_books_cbf,
-                    top_n=num_recs_cbf,
-                )
-                tampilkan_rekomendasi_di_ui(similar_df, f"Buku serupa dengan '{selected_book_title}':")
+            if st.button("Cari Buku", key="cbf_button"):
+                if select_title:
+                    similar_df = get_similar_books(
+                        select_title,
+                        cbf_tfidf_matrix,
+                        book_titles,
+                        df_books_cbf,
+                        top_n=10,
+                    )
+                    tampilkan_rekomendasi_di_ui(similar_df, f"Buku serupa dengan '{select_title}':")
     else:
-        st.error("Aset untuk Content-Based Filtering tidak lengkap. Periksa pemuatan data.")
+        st.error("Maaf terjadi kesalahan saat memuat data.")
 
-    # Cek apakah semua aset tersedia untuk CF
     if all([user_encoding, isbn_encoding, df_ratings is not None, cf_model, book_df is not None]):
 
-        # Ambil dan tampilkan rekomendasi CF
+        # Tampilkan rekomendasi CF
         rekomendasi_df = get_cf_recommendations(
             user_id,
             df_ratings,
@@ -112,14 +111,9 @@ else:
             isbn_encoding,
             user_encoding,
             cf_model,
-            20
+            top_n=20
         )
         st.subheader("📌 Rekomendasi Berdasarkan Preferensi Anda")
         tampilkan_rekomendasi_di_ui(rekomendasi_df, f"Rekomendasi untuk User: {user_id}")
     else:
-        st.write("num_users:", num_users)
-        st.write("num_books:", num_books)
-        st.write("df_ratings is None:", df_ratings is None)
-        st.write("cf_model:", cf_model)
-        st.write("book_df is None:", book_df is None)
-        st.error("Aset untuk Collaborative Filtering tidak lengkap. Periksa pemuatan data.")
+        st.error("Maaf terjadi kesalahan saat memuat data.")
